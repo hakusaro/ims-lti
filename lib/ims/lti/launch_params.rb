@@ -136,6 +136,17 @@ module IMS::LTI
       params
     end
 
+    def to_jwt_params(params={})
+      params = params.merge(launch_data_hash).merge(@non_spec_params)
+      params["custom"] = @custom_params unless @custom_params.empty?
+      params["ext"] = @ext_params unless @ext_params.empty?
+      params["roles"] = @roles if @roles
+      params["lti_version"] = "LTI-1p0"
+      params["lti_message_type"] = "basic-lti-launch-request"
+
+      params
+    end
+
     # Populates the launch data from a Hash
     #
     # Only keys in LAUNCH_DATA_PARAMETERS and that start with 'custom_' or 'ext_'
@@ -150,6 +161,22 @@ module IMS::LTI
           @ext_params[$1] = val
         end
       end
+    end
+
+    # Populates the launch data from a Hash
+    #
+    # Only keys in LAUNCH_DATA_PARAMETERS and that start with 'custom_' or 'ext_'
+    # will be pulled from the provided Hash
+    def process_jwt_params(params)
+      params.each_pair do |key, val|
+        if LAUNCH_DATA_PARAMETERS.member?(key)
+          self.send("#{key}=", val)
+        else
+          @non_spec_params[key] = val
+        end
+      end
+      @custom_params = params["custom"] if params["custom"]
+      @custom_params = params["ext"] if params["ext"]
     end
 
     private

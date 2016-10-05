@@ -2,6 +2,7 @@ require 'oauth'
 require 'builder'
 require "rexml/document"
 require 'cgi'
+require 'jwt'
 
 module IMS # :nodoc:
 
@@ -48,6 +49,22 @@ module IMS # :nodoc:
     # Generates a unique identifier
     def self.generate_identifier
       SecureRandom.uuid
+    end
+
+    # Tries to find the key, or hint to a key in the params
+    # If there is an oauth_consumer_key it is returned
+    # If there is a 'jwt', parse the header and get the `kid` value
+    # todo: throw error if none? or blank? or other things?
+    # for jwt, if encryption type is none
+    def self.find_lti_key(params)
+      if params["oauth_consumer_key"]
+        params["oauth_consumer_key"]
+      elsif params["jwt"]
+        _, header = JWT.decode(params["jwt"], nil, false)
+        header["kid"]
+      else
+        nil
+      end
     end
   end
 end

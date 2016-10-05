@@ -16,6 +16,26 @@ module IMS::LTI
     #    require 'oauth/request_proxy/action_controller_request'
     # @return [Bool] Whether the request was valid
     def valid_request?(request, handle_error=true)
+      #todo: handle JWT case
+      if using_jwt?
+        valid_jwt_request?(handle_error)
+      else
+        valid_oath_request?(request, handle_error)
+      end
+    end
+
+    def valid_jwt_request?(handle_error=true)
+      JWT.decode(@jwt, @consumer_secret)
+      true
+    rescue JWT::VerificationError
+      if handle_error
+        false
+      else
+        raise $!
+      end
+    end
+
+    def valid_oath_request?(request, handle_error=true)
       begin
         @oauth_signature_validator = OAuth::Signature.build(request, :consumer_secret => @consumer_secret)
         @oauth_signature_validator.verify() or raise OAuth::Unauthorized

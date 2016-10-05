@@ -1,3 +1,5 @@
+require 'jwt'
+
 module IMS::LTI
   # Class for implementing an LTI Tool Consumer
   class ToolConsumer < ToolBase
@@ -11,6 +13,7 @@ module IMS::LTI
     def initialize(consumer_key, consumer_secret, params={})
       super(consumer_key, consumer_secret, params)
       @launch_url = params['launch_url']
+      @using_jwt = params["use_jwt"]
     end
     
     def process_post_request(post_request)
@@ -33,12 +36,60 @@ module IMS::LTI
       @consumer_key && @consumer_secret && @resource_link_id && @launch_url
     end
 
+    def nonce
+      @nonce || "generateone"
+    end
+
     # Generate the launch data including the necessary OAuth information
     #
     #
     def generate_launch_data
       raise IMS::LTI::InvalidLTIConfigError, "Not all required params set for tool launch" unless has_required_params?
 
+      if self.using_jwt?
+        generate_jwt_launch_data
+      else
+        generate_oath_launch_data
+      end
+    end
+
+    # {
+    #   "iss" : "ims.example",
+    #   "iat" : "1470182400",
+    #   "exp" : "1470182700",
+    #   "jti" : "b2e3d4f10ea6cf543f13e58a44b90432",
+    #   "aud" : "https://tp.com/lti_launch?q=123",
+    #   "org.imsglobal.lti.message": {
+    #     "user_id" : "29123",
+    #     "resource_link_id" : "429785226",
+    #     "lti_message_type" : "basic-lti-launch-request",
+    #     "lti_version" : "LTI-1p0",
+    #     "roles" : [
+    #       "Instructor",
+    #       "ContentDeveloper"
+    #     ],
+    #     "custom" : {
+    #       "author" : "john"
+    #     },
+    #     "ext" : {
+    #       "lms" : "moodle-2"
+    #     }
+    #   }
+    # }
+    def generate_jwt_launch_data
+      #todo: make exp configurable
+      payload = {"iss" => @consumer_key,
+                 "iat" => Time.now.getutc.to_i,
+                 "jti" => nonce,
+                 "exp" => Time.now.getutc.to_i + 300,
+                 "aud" => self.launch_url,
+                 "org.imsglobal.lti.message" => self.to_jwt_params
+      }
+
+      {"jwt" => JWT.encode(payload, @consumer_secret, 'HS512', "kid" => @consumer_key)}
+    end
+
+    def generate_oath_launch_data
       params = self.to_params
       params['lti_version'] ||= 'LTI-1p0'
       params['lti_message_type'] ||= 'basic-lti-launch-request'

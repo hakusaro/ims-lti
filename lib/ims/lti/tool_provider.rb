@@ -43,6 +43,7 @@ module IMS::LTI
     attr_accessor :lti_errormsg, :lti_errorlog, :lti_msg, :lti_log
 
     # Create a new ToolProvider
+    # If there is a "jwt" in the params then the request will be processed as jwt
     #
     # @param consumer_key [String] The OAuth consumer key
     # @param consumer_secret [String] The OAuth consumer secret
